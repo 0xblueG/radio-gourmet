@@ -1,6 +1,6 @@
 # Radio-gourmet — Architecture
 
-> This document is kept up-to-date as the project evolves. Last updated: 2026-03-14 (measurements module added).
+> This document is kept up-to-date as the project evolves. Last updated: 2026-03-14 (report editor added).
 
 ## Overview
 
@@ -113,7 +113,16 @@ Hook `useAnnotationEvents` in `src/features/measurements/hooks/` listens to Corn
 
 ### Report
 
+Defined in `src/types/report.ts`.
+
 ```typescript
+interface ReportTemplate {
+  id: string;
+  name: string;
+  description: string;
+  content: JSONContent;          // TipTap JSON with {{placeholder}} tokens
+}
+
 interface Report {
   id: string;
   templateId: string;
@@ -123,6 +132,25 @@ interface Report {
   exportedAt?: Date;
 }
 ```
+
+### Template Hydration
+
+Pure function in `src/features/report/template-hydration.ts`. Walks a TipTap JSONContent tree and replaces `{{placeholder}}` tokens with formatted RECIST data.
+
+- **Inline tokens** (`{{sld}}`, `{{targetCount}}`, `{{nonTargetCount}}`, `{{validationStatus}}`) — string replacement within text nodes
+- **Block tokens** (`{{targetLesionList}}`, `{{nonTargetLesionList}}`) — entire paragraph replaced with a bullet list of lesions
+
+Hydration happens once on template selection (snapshot approach), not live-bound. The `recistData` field on `Report` captures the RECIST state at hydration time.
+
+### Report Store
+
+Zustand store in `src/features/report/store.ts`. Manages template selection, editor content, and RECIST snapshot.
+
+Actions: `selectTemplate` (hydrates template with current RECIST data), `updateContent` (syncs from TipTap editor), `resetReport`.
+
+### Report Editor
+
+TipTap (ProseMirror) editor in the right panel. Uses `StarterKit` extensions (headings, bold, italic, lists). Editor is uncontrolled — the store receives updates via `onUpdate`, content is only pushed to the editor on template selection.
 
 ## Dependencies
 
@@ -134,5 +162,6 @@ interface Report {
 | `dicom-parser` | Low-level DICOM tag parsing |
 | `@tiptap/react` | Rich text editor for reports |
 | `@tiptap/starter-kit` | Basic TipTap extensions bundle |
+| `@tailwindcss/typography` | Prose styling for TipTap editor |
 | `zustand` | State management |
 | `tailwindcss` | Styling |
