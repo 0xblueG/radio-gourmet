@@ -1,6 +1,6 @@
 # Radio-gourmet — Architecture
 
-> This document is kept up-to-date as the project evolves. Last updated: 2026-03-14.
+> This document is kept up-to-date as the project evolves. Last updated: 2026-03-14 (measurements module added).
 
 ## Overview
 
@@ -53,32 +53,63 @@ DICOM File (local)
 
 ### Lesion
 
+Defined in `src/types/measurements.ts`.
+
 ```typescript
+type Organ = 'liver' | 'lung' | 'lymph_node' | 'bone' | 'brain'
+           | 'adrenal' | 'kidney' | 'peritoneum' | 'soft_tissue' | 'other';
 type LesionType = 'target' | 'non-target';
 
 interface Lesion {
   id: string;
   type: LesionType;
-  organ: string;
+  organ: Organ;
   longestDiameter: number;    // mm — for target lesions
   shortAxis?: number;         // mm — for lymph nodes
   annotationUID: string;      // links to Cornerstone3D annotation
   seriesInstanceUID: string;  // which DICOM series
   imageId: string;            // which specific image/slice
+  label: string;              // auto-generated: "T1", "NT2", etc.
 }
 ```
 
 ### RECIST Baseline Summary
 
 ```typescript
+interface ValidationError {
+  rule: string;                     // machine-readable rule id
+  message: string;                  // human-readable description
+}
+
 interface RecistBaseline {
   targetLesions: Lesion[];          // max 5
   nonTargetLesions: Lesion[];       // unlimited
   sumOfLongestDiameters: number;    // calculated, mm
   isValid: boolean;                 // all RECIST rules satisfied
-  validationErrors: string[];       // human-readable rule violations
+  validationErrors: ValidationError[];
 }
 ```
+
+### RECIST Rules Engine
+
+Pure functions in `src/features/measurements/recist.ts`. No UI/state/Cornerstone dependencies. 100% unit test coverage.
+
+Validation rules:
+- `validateTargetLesionCount` — max 5 target lesions
+- `validateTargetLesionsPerOrgan` — max 2 per organ
+- `validateMeasurability` — targets ≥ 10mm; lymph nodes ≥ 15mm short axis
+- `calculateSLD` — sum of longest diameters (uses short axis for lymph nodes per RECIST 1.1)
+- `validateBaseline` — runs all validations, returns `RecistBaseline`
+
+### Measurements Store
+
+Zustand store in `src/features/measurements/store.ts`. Every mutation revalidates the baseline via `validateBaseline`.
+
+Actions: `addLesion`, `removeLesion`, `updateLesion`, `selectLesion`, `clearAll`.
+
+### Annotation Bridge
+
+Hook `useAnnotationEvents` in `src/features/measurements/hooks/` listens to Cornerstone3D `ANNOTATION_COMPLETED`, `ANNOTATION_MODIFIED`, `ANNOTATION_REMOVED` events on `eventTarget` and syncs them with the measurements store.
 
 ### Report
 

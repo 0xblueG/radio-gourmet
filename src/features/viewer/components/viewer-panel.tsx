@@ -3,6 +3,8 @@ import { useCornerstone } from '../hooks/use-cornerstone'
 import { useDicomLoader } from '../hooks/use-dicom-loader'
 import { ViewerToolbar } from './viewer-toolbar'
 import { setActivePrimaryTool, type ActiveTool } from '../utils/cornerstone-init'
+import { useAnnotationEvents } from '../../measurements/hooks/use-annotation-events'
+import { LesionList } from '../../measurements/components/lesion-list'
 
 export function ViewerPanel() {
   const { containerRef, isReady, getViewport, render } = useCornerstone()
@@ -13,6 +15,8 @@ export function ViewerPanel() {
   const [activeTool, setActiveTool] = useState<ActiveTool>('WindowLevel')
   const [currentSlice, setCurrentSlice] = useState(0)
   const [isDragOver, setIsDragOver] = useState(false)
+
+  const { removeAnnotation } = useAnnotationEvents(isReady)
 
   // Track current slice index via Cornerstone events
   useEffect(() => {
@@ -81,6 +85,19 @@ export function ViewerPanel() {
 
   const hasImages = totalSlices > 0
 
+  const handleScrollToLesion = useCallback(
+    (imageId: string) => {
+      const viewport = getViewport()
+      if (!viewport) return
+      const imageIds = viewport.getImageIds()
+      const index = imageIds.indexOf(imageId)
+      if (index >= 0) {
+        viewport.setImageIdIndex(index)
+      }
+    },
+    [getViewport],
+  )
+
   return (
     <div className="flex h-full flex-col bg-black">
       <ViewerToolbar
@@ -91,7 +108,7 @@ export function ViewerPanel() {
 
       {/* Viewport container */}
       <div
-        className="relative flex-1"
+        className="relative min-h-0 flex-1"
         onDragOver={(e) => {
           e.preventDefault()
           setIsDragOver(true)
@@ -141,6 +158,16 @@ export function ViewerPanel() {
           </div>
         )}
       </div>
+
+      {/* Lesion list */}
+      {hasImages && (
+        <div className="max-h-[40%] shrink-0 overflow-y-auto">
+          <LesionList
+            onDeleteAnnotation={removeAnnotation}
+            onScrollToLesion={handleScrollToLesion}
+          />
+        </div>
+      )}
     </div>
   )
 }

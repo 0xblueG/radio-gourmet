@@ -1,8 +1,7 @@
-import { defineConfig, type Plugin } from 'vite'
+import { defineConfig, type Plugin } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { readFileSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
 import { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)
@@ -49,6 +48,9 @@ export default module.exports;
 }
 
 export default defineConfig({
+  test: {
+    include: ['src/**/*.test.ts'],
+  },
   plugins: [react(), tailwindcss(), cornerstoneCodecPlugin()],
   server: {
     headers: {
